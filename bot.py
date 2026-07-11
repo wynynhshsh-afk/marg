@@ -1,6 +1,6 @@
 # ============================================
 # ربات ویو زن شیشه‌ای - کد کامل
-# پایتون 3.14 - python-telegram-bot v20+
+# پایتون 3.14 - python-telegram-bot v21.8
 # ============================================
 
 import asyncio
@@ -17,12 +17,13 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 
 # ==================== تنظیمات اولیه ====================
 
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
-WEBHOOK_URL = "https://yourdomain.com/webhook"
-WEBHOOK_PORT = 8443
+# دریافت از محیط اجرا (برای Render)
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://yourdomain.com")
+WEBHOOK_PORT = int(os.environ.get("PORT", 8443))
 
 # آیدی عددی دو ادمین اصلی (اینجا تغییر دهید)
-MASTER_ADMINS = [123456789, 987654321]
+MASTER_ADMINS = [123456789, 987654321]  # آیدی خود را وارد کنید
 
 # لیست اولیه پروکسی‌ها (حداقل ۵۰ عدد برای عملکرد بهتر)
 PROXY_LIST = [
@@ -724,7 +725,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         count = context.user_data.get('target_count', 100)
-        view_type = context.user_data.get('view_type', 'random')
         
         # ارسال پیام شروع
         status_msg = await update.message.reply_text(
@@ -811,7 +811,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================== اجرای اصلی ====================
 
 def main():
-    """اجرای ربات با وب‌هوک"""
+    """اجرای ربات با وب‌هوک برای Render"""
     # تنظیم لاگ
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -826,7 +826,7 @@ def main():
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    # اجرا با وب‌هوک
+    # اجرا با وب‌هوک (برای Render)
     application.run_webhook(
         listen="0.0.0.0",
         port=WEBHOOK_PORT,
