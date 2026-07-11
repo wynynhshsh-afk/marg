@@ -1,6 +1,6 @@
 # ============================================
-# ربات ویو زن شیشه‌ای - نسخه پایتون 3.14
-# کاملاً سازگار با Render
+# ربات ویو زن شیشه‌ای - نسخه Render.com
+# پایتون 3.14 - python-telegram-bot v21.8
 # ============================================
 
 import asyncio
@@ -17,15 +17,12 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 
 # ==================== تنظیمات اولیه ====================
 
-# دریافت از محیط اجرا (برای Render)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://yourdomain.com")
-WEBHOOK_PORT = int(os.environ.get("PORT", 8443))
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://your-app-name.onrender.com")
+WEBHOOK_PORT = int(os.environ.get("PORT", 10000))
 
-# آیدی عددی دو ادمین اصلی (اینجا تغییر دهید)
-MASTER_ADMINS = [123456789, 987654321]  # آیدی خود را وارد کنید
+MASTER_ADMINS = [123456789, 987654321]
 
-# لیست اولیه پروکسی‌ها (حداقل ۵۰ عدد برای عملکرد بهتر)
 PROXY_LIST = [
     "http://proxy1:8080",
     "http://proxy2:8080",
@@ -37,10 +34,8 @@ PROXY_LIST = [
     "http://proxy8:8080",
     "http://proxy9:8080",
     "http://proxy10:8080",
-    # ... ۴۰ پروکسی دیگر اضافه کنید
 ]
 
-# تنظیمات پیش‌فرض
 DEFAULT_SETTINGS = {
     'speed': 1000,
     'delay': 0,
@@ -150,7 +145,6 @@ settings_manager = SettingsManager()
 # ==================== توابع کیبورد ====================
 
 def get_glass_menu() -> InlineKeyboardMarkup:
-    """منوی اصلی با استایل شیشه‌ای"""
     keyboard = [
         [InlineKeyboardButton("💎 ویو تصادفی", callback_data="random_view")],
         [InlineKeyboardButton("🎯 ویو دلخواه", callback_data="custom_view")],
@@ -162,7 +156,6 @@ def get_glass_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def get_random_view_menu() -> InlineKeyboardMarkup:
-    """منوی انتخاب تعداد تصادفی"""
     keyboard = [
         [InlineKeyboardButton("🎲 ۱۰۰ ویو", callback_data="rand_100")],
         [InlineKeyboardButton("🎲 ۵۰۰ ویو", callback_data="rand_500")],
@@ -174,7 +167,6 @@ def get_random_view_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def get_custom_number_keyboard() -> InlineKeyboardMarkup:
-    """کیبورد عددی برای ویو دلخواه"""
     keyboard = [
         [
             InlineKeyboardButton("1", callback_data="num_1"),
@@ -199,7 +191,6 @@ def get_custom_number_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def get_stats_menu() -> InlineKeyboardMarkup:
-    """منوی آمار"""
     keyboard = [
         [InlineKeyboardButton("📅 امروز", callback_data="stats_today")],
         [InlineKeyboardButton("📆 این هفته", callback_data="stats_week")],
@@ -210,7 +201,6 @@ def get_stats_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def get_proxy_menu() -> InlineKeyboardMarkup:
-    """منوی مدیریت پروکسی"""
     auto_status = "✅ فعال" if settings_manager.get('auto_rotate') else "❌ غیرفعال"
     keyboard = [
         [InlineKeyboardButton(f"🔄 چرخش خودکار ({auto_status})", callback_data="proxy_auto")],
@@ -222,7 +212,6 @@ def get_proxy_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def get_users_menu() -> InlineKeyboardMarkup:
-    """منوی مدیریت کاربران (فقط ادمین)"""
     keyboard = [
         [InlineKeyboardButton("➕ افزودن کاربر", callback_data="user_add")],
         [InlineKeyboardButton("➖ حذف کاربر", callback_data="user_remove")],
@@ -232,7 +221,6 @@ def get_users_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def get_settings_menu() -> InlineKeyboardMarkup:
-    """منوی تنظیمات"""
     keyboard = [
         [InlineKeyboardButton("⏱ سرعت ویو", callback_data="set_speed")],
         [InlineKeyboardButton("🛡 تاخیر بین ویوها", callback_data="set_delay")],
@@ -245,7 +233,6 @@ def get_settings_menu() -> InlineKeyboardMarkup:
 # ==================== تابع ارسال ویو ====================
 
 async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
-    """ارسال یک ویو به صورت غیرهمزمان"""
     try:
         timeout = aiohttp.ClientTimeout(total=3)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -256,17 +243,14 @@ async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
         return False
 
 async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """اجرای همزمان ویوها با سرعت مشخص"""
     success_count = 0
     speed = settings_manager.get('speed')
     delay = settings_manager.get('delay')
     
-    # ایجاد لیست پروکسی‌های قابل استفاده
     available_proxies = PROXY_LIST.copy()
     if not available_proxies:
         available_proxies = [None]
     
-    # اجرا به صورت بچ‌های همزمان
     batch_size = speed
     total_batches = (count + batch_size - 1) // batch_size
     
@@ -277,7 +261,6 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
         for _ in range(batch_count):
             proxy = random.choice(available_proxies) if available_proxies and settings_manager.get('auto_rotate') else None
             
-            # تولید هدر تصادفی
             headers = {
                 'User-Agent': random.choice([
                     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -305,15 +288,12 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
             
             tasks.append(send_view_async(post_url, proxy, headers))
         
-        # اجرای همزمان بچ
         results = await asyncio.gather(*tasks)
         success_count += sum(results)
         
-        # اعمال تاخیر بین بچ‌ها
         if delay > 0 and batch_num < total_batches - 1:
             await asyncio.sleep(delay / 1000)
     
-    # به‌روزرسانی آمار
     if success_count > 0:
         stats_manager.add_success(success_count)
     failed = count - success_count
@@ -324,11 +304,9 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
 
 # ==================== هندلرهای ربات ====================
 
-# وضعیت‌های مکالمه
 WAITING_FOR_LINK, WAITING_FOR_PROXY, WAITING_FOR_USER = range(3)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """دستور /start"""
     user_id = update.effective_user.id
     if not user_manager.is_allowed(user_id):
         await update.message.reply_text("⛔ شما دسترسی به این ربات ندارید!")
@@ -344,7 +322,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(welcome_text, reply_markup=get_glass_menu(), parse_mode='Markdown')
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """مدیریت تمام کلیک‌های دکمه‌ها"""
     query = update.callback_query
     await query.answer()
     
@@ -355,7 +332,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     data = query.data
     
-    # ========== بازگشت به منو ==========
     if data == "menu":
         await query.edit_message_text(
             "✨💎 **ربات ویو زن شیشه‌ای** 💎✨\n\nمنوی اصلی:",
@@ -364,7 +340,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         context.user_data.clear()
     
-    # ========== ویو تصادفی ==========
     elif data == "random_view":
         await query.edit_message_text(
             "🎲 **تعداد ویو تصادفی را انتخاب کنید:**",
@@ -374,7 +349,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     elif data.startswith("rand_"):
         count = int(data.split("_")[1])
-        # اعمال تصادفی‌سازی ±۲۰%
         actual_count = int(count * random.uniform(0.8, 1.2))
         context.user_data['target_count'] = actual_count
         context.user_data['view_type'] = 'random'
@@ -389,7 +363,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             parse_mode='Markdown'
         )
     
-    # ========== ویو دلخواه ==========
     elif data == "custom_view":
         context.user_data['number_input'] = ""
         await query.edit_message_text(
@@ -440,7 +413,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 parse_mode='Markdown'
             )
     
-    # ========== آمار ==========
     elif data == "stats":
         await query.edit_message_text(
             "📊 **آمار ویوها:**\n\n"
@@ -477,7 +449,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=get_stats_menu()
             )
     
-    # ========== مدیریت پروکسی ==========
     elif data == "proxy":
         await query.edit_message_text(
             "🌍 **مدیریت پروکسی شیشه‌ای:**\n\n"
@@ -532,7 +503,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
     
     elif data == "proxy_clear":
-        # تأیید دوم
         keyboard = [
             [InlineKeyboardButton("✅ بله، پاک کن", callback_data="proxy_clear_confirm")],
             [InlineKeyboardButton("❌ لغو", callback_data="proxy")],
@@ -549,7 +519,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             reply_markup=get_proxy_menu()
         )
     
-    # ========== مدیریت کاربران (فقط ادمین) ==========
     elif data == "users":
         if user_id not in MASTER_ADMINS:
             await query.edit_message_text(
@@ -636,7 +605,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             parse_mode='Markdown'
         )
     
-    # ========== تنظیمات ==========
     elif data == "settings":
         await query.edit_message_text(
             "⚙️ **تنظیمات شیشه‌ای:**\n\n"
@@ -709,7 +677,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # ==================== هندلر دریافت متن ====================
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """دریافت متن از کاربر (لینک، پروکسی، آیدی کاربر)"""
     user_id = update.effective_user.id
     if not user_manager.is_allowed(user_id):
         await update.message.reply_text("⛔ شما دسترسی ندارید!")
@@ -718,7 +685,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     text = update.message.text
     state = context.user_data.get('state')
     
-    # ===== دریافت لینک پست =====
     if state == WAITING_FOR_LINK:
         if not text.startswith(('http://', 'https://')):
             await update.message.reply_text(
@@ -731,13 +697,11 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         
         count = context.user_data.get('target_count', 100)
         
-        # ارسال پیام شروع
         status_msg = await update.message.reply_text(
             f"🌀 در حال ارسال **{count}** ویو به:\n`{text}`",
             parse_mode='Markdown'
         )
         
-        # اجرای ویوها
         try:
             success = await execute_views(text, count, context)
             failed = count - success
@@ -762,10 +726,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 parse_mode='Markdown'
             )
         
-        # پاک کردن وضعیت
         context.user_data.clear()
     
-    # ===== دریافت پروکسی جدید =====
     elif state == WAITING_FOR_PROXY:
         if '://' in text and ':' in text.split('://')[1]:
             PROXY_LIST.append(text)
@@ -786,7 +748,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             )
         context.user_data.clear()
     
-    # ===== دریافت آیدی کاربر جدید =====
     elif state == WAITING_FOR_USER:
         if user_id not in MASTER_ADMINS:
             await update.message.reply_text("⛔ دسترسی غیرمجاز!")
@@ -816,22 +777,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 # ==================== اجرای اصلی ====================
 
 def main() -> None:
-    """اجرای ربات با وب‌هوک برای Render"""
-    # تنظیم لاگ
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
     )
     
-    # ساخت اپلیکیشن
     application = Application.builder().token(BOT_TOKEN).build()
     
-    # اضافه کردن هندلرها
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    # اجرا با وب‌هوک (برای Render)
     application.run_webhook(
         listen="0.0.0.0",
         port=WEBHOOK_PORT,
