@@ -1,6 +1,5 @@
 # ============================================
-# ربات ویو زن شیشه‌ای - نسخه نهایی با پشتیبانی از پروکسی MTProto
-# کاملاً سازگار با پایتون 3.14 و Render
+# ربات ویو زن - نسخه با لاگ‌گیری دقیق
 # ============================================
 
 import asyncio
@@ -10,19 +9,36 @@ import json
 import os
 import logging
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters, ContextTypes
 
+# تنظیم لاگ دقیق
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG  # تغییر به DEBUG برای مشاهده جزئیات بیشتر
+)
+logger = logging.getLogger(__name__)
+
 # ==================== تنظیمات اولیه ====================
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-MASTER_ADMINS = [8540004957, 601668306]  # آیدی خود را جایگزین کنید
+MASTER_ADMINS = [8540004957, 601668306]
 
-# ==================== پروکسی‌های MTProto ====================
+# ==================== پروکسی‌های تست ====================
 
+# پروکسی‌های HTTP عمومی (برای تست)
+PROXY_LIST = [
+    "http://37.97.169.58:3128",
+    "http://45.76.112.154:3128", 
+    "http://50.174.7.158:80",
+    "http://51.15.166.107:3128",
+    "http://138.68.60.157:3128",
+]
+
+# پروکسی‌های MTProto (فقط برای اتصال به تلگرام)
 MTProto_PROXIES = [
     {
         'server': '116.203.140.198',
@@ -38,20 +54,15 @@ MTProto_PROXIES = [
     }
 ]
 
-PROXY_LIST = [
-    "http://116.203.140.198:8443",
-    "http://rain.golgoli2.co.uk:2096",
-]
-
 DEFAULT_SETTINGS = {
-    'speed': 1000,
-    'delay': 0,
+    'speed': 10,  # کاهش سرعت برای تست
+    'delay': 100,  # افزایش تاخیر برای تست
     'random_header': True,
     'auto_rotate': True,
-    'use_mtproto': False,
+    'use_mtproto': False,  # برای تست با HTTP
 }
 
-# ==================== کلاس‌های مدیریت ====================
+# ==================== کلاس‌های مدیریت (بدون تغییر) ====================
 
 class UserManager:
     def __init__(self, file_path: str = 'users.json'):
@@ -138,13 +149,11 @@ class SettingsManager:
         self.settings[key] = value
         self.save()
 
-# ==================== نمونه‌سازی ====================
-
 user_manager = UserManager()
 stats_manager = StatsManager()
 settings_manager = SettingsManager()
 
-# ==================== توابع کیبورد ====================
+# ==================== توابع کیبورد (بدون تغییر) ====================
 
 def get_glass_menu() -> InlineKeyboardMarkup:
     keyboard = [
@@ -159,11 +168,11 @@ def get_glass_menu() -> InlineKeyboardMarkup:
 
 def get_random_view_menu() -> InlineKeyboardMarkup:
     keyboard = [
+        [InlineKeyboardButton("🎲 ۱۰ ویو", callback_data="rand_10")],
+        [InlineKeyboardButton("🎲 ۵۰ ویو", callback_data="rand_50")],
         [InlineKeyboardButton("🎲 ۱۰۰ ویو", callback_data="rand_100")],
         [InlineKeyboardButton("🎲 ۵۰۰ ویو", callback_data="rand_500")],
         [InlineKeyboardButton("🎲 ۱۰۰۰ ویو", callback_data="rand_1000")],
-        [InlineKeyboardButton("🎲 ۵۰۰۰ ویو", callback_data="rand_5000")],
-        [InlineKeyboardButton("🎲 ۱۰۰۰۰ ویو", callback_data="rand_10000")],
         [InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -234,68 +243,99 @@ def get_settings_menu() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# ==================== توابع اصلی ویو ====================
+# ==================== توابع اصلی ویو با لاگ دقیق ====================
 
 async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
+    """ارسال ویو با پروکسی HTTP"""
     try:
-        timeout = aiohttp.ClientTimeout(total=3)
+        logger.debug(f"📤 ارسال ویو به {url} از طریق پروکسی {proxy}")
+        timeout = aiohttp.ClientTimeout(total=5)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url, proxy=proxy, headers=headers, ssl=False) as resp:
-                return resp.status in [200, 201, 202, 204, 301, 302]
+                status = resp.status
+                logger.debug(f"✅ پاسخ: {status} برای {url}")
+                return status in [200, 201, 202, 203, 204, 301, 302, 307, 308]
     except Exception as e:
-        logging.error(f"ویو ناموفق: {e}")
+        logger.error(f"❌ خطا در ارسال ویو: {e}")
         return False
 
-async def send_view_mtproto(url: str, proxy: dict, headers: dict) -> bool:
+async def send_view_direct(url: str, headers: dict) -> bool:
+    """ارسال ویو بدون پروکسی (برای تست)"""
     try:
-        http_proxy = f"http://{proxy['server']}:{proxy['port']}"
-        timeout = aiohttp.ClientTimeout(total=3)
+        logger.debug(f"📤 ارسال ویو مستقیم به {url}")
+        timeout = aiohttp.ClientTimeout(total=5)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, proxy=http_proxy, headers=headers, ssl=False) as resp:
-                return resp.status in [200, 201, 202, 204, 301, 302]
+            async with session.get(url, headers=headers, ssl=False) as resp:
+                status = resp.status
+                logger.debug(f"✅ پاسخ مستقیم: {status} برای {url}")
+                return status in [200, 201, 202, 203, 204, 301, 302, 307, 308]
     except Exception as e:
-        logging.error(f"ویو با MTProto ناموفق: {e}")
+        logger.error(f"❌ خطا در ارسال ویو مستقیم: {e}")
         return False
 
 async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """اجرای ویوها با لاگ دقیق"""
     success_count = 0
     speed = settings_manager.get('speed')
     delay = settings_manager.get('delay')
     use_mtproto = settings_manager.get('use_mtproto')
     
+    logger.info(f"🚀 شروع ارسال {count} ویو به {post_url}")
+    logger.info(f"📊 تنظیمات: speed={speed}, delay={delay}, use_mtproto={use_mtproto}")
+    
+    # انتخاب پروکسی
     if use_mtproto and MTProto_PROXIES:
         available_proxies = MTProto_PROXIES.copy()
         proxy_type = 'mtproto'
+        logger.info(f"🔮 استفاده از {len(available_proxies)} پروکسی MTProto")
     else:
-        available_proxies = PROXY_LIST.copy() if PROXY_LIST else [None]
+        available_proxies = PROXY_LIST.copy() if PROXY_LIST else []
         proxy_type = 'http'
+        logger.info(f"🌐 استفاده از {len(available_proxies)} پروکسی HTTP")
+    
+    # اگر پروکسی وجود ندارد، مستقیم ارسال کن
+    if not available_proxies:
+        logger.warning("⚠️ هیچ پروکسی موجود نیست! ارسال مستقیم...")
+        available_proxies = [None]
     
     batch_size = speed
     total_batches = (count + batch_size - 1) // batch_size
+    logger.info(f"📦 تعداد بچ‌ها: {total_batches} (هر بچ {batch_size} درخواست)")
     
     for batch_num in range(total_batches):
         batch_count = min(batch_size, count - (batch_num * batch_size))
         tasks = []
         
-        for _ in range(batch_count):
+        logger.debug(f"🔄 بچ {batch_num+1}/{total_batches}: {batch_count} درخواست")
+        
+        for i in range(batch_count):
+            # انتخاب پروکسی تصادفی
             if available_proxies and settings_manager.get('auto_rotate'):
                 proxy = random.choice(available_proxies)
             else:
                 proxy = available_proxies[0] if available_proxies else None
             
+            # هدرهای تصادفی
             headers = {
                 'User-Agent': random.choice([
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
                 ]),
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Language': 'en-US,en;q=0.9,fa;q=0.8',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'DNT': '1',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
             }
             
             if settings_manager.get('random_header'):
@@ -305,28 +345,38 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
                     'https://www.yahoo.com/',
                     'https://www.instagram.com/',
                     'https://www.facebook.com/',
+                    'https://twitter.com/',
                 ])
             
-            if proxy_type == 'mtproto' and proxy:
-                tasks.append(send_view_mtproto(post_url, proxy, headers))
+            # ارسال ویو
+            if proxy is None:
+                tasks.append(send_view_direct(post_url, headers))
+            elif proxy_type == 'mtproto' and isinstance(proxy, dict):
+                http_proxy = f"http://{proxy['server']}:{proxy['port']}"
+                tasks.append(send_view_async(post_url, http_proxy, headers))
             else:
                 tasks.append(send_view_async(post_url, proxy, headers))
         
+        # اجرای همزمان بچ
         results = await asyncio.gather(*tasks)
-        success_count += sum(results)
+        batch_success = sum(results)
+        success_count += batch_success
+        logger.info(f"✅ بچ {batch_num+1}: {batch_success}/{batch_count} موفق")
         
         if delay > 0 and batch_num < total_batches - 1:
             await asyncio.sleep(delay / 1000)
     
+    # به‌روزرسانی آمار
     if success_count > 0:
         stats_manager.add_success(success_count)
     failed = count - success_count
     if failed > 0:
         stats_manager.add_failed(failed)
     
+    logger.info(f"🏁 نهایی: {success_count}/{count} ویو موفق")
     return success_count
 
-# ==================== هندلرهای ربات ====================
+# ==================== هندلرهای ربات (بدون تغییر) ====================
 
 WAITING_FOR_LINK, WAITING_FOR_PROXY, WAITING_FOR_USER = range(3)
 
@@ -341,6 +391,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"🌀 **سرعت:** {settings_manager.get('speed')} ویو در ثانیه\n"
         f"🔮 **پروکسی چرخشی:** {'✅ فعال' if settings_manager.get('auto_rotate') else '❌ غیرفعال'}\n"
         f"🔐 **پروکسی MTProto:** {'✅ فعال' if settings_manager.get('use_mtproto') else '❌ غیرفعال'}\n"
+        f"🌐 **تعداد پروکسی‌ها:** {len(PROXY_LIST)} HTTP + {len(MTProto_PROXIES)} MTProto\n"
         "📡 **وضعیت:** 🟢 آنلاین\n\n"
         "از دکمه‌های زیر برای شروع استفاده کنید:"
     )
@@ -469,7 +520,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         proxy_text = "📋 **لیست پروکسی‌ها:**\n\n"
         proxy_text += "**HTTP Proxy:**\n"
         if PROXY_LIST:
-            for i, proxy in enumerate(PROXY_LIST[-5:], 1):
+            for i, proxy in enumerate(PROXY_LIST[-10:], 1):
                 proxy_text += f"{i}. `{proxy}`\n"
         else:
             proxy_text += "❌ هیچ پروکسی HTTP موجود نیست\n"
@@ -560,10 +611,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     elif data == "set_speed":
         keyboard = [
+            [InlineKeyboardButton("۱۰/ثانیه", callback_data="speed_10")],
+            [InlineKeyboardButton("۵۰/ثانیه", callback_data="speed_50")],
+            [InlineKeyboardButton("۱۰۰/ثانیه", callback_data="speed_100")],
             [InlineKeyboardButton("۵۰۰/ثانیه", callback_data="speed_500")],
             [InlineKeyboardButton("۱۰۰۰/ثانیه", callback_data="speed_1000")],
-            [InlineKeyboardButton("۲۰۰۰/ثانیه", callback_data="speed_2000")],
-            [InlineKeyboardButton("۵۰۰۰/ثانیه", callback_data="speed_5000")],
             [InlineKeyboardButton("🔙 بازگشت", callback_data="settings")],
         ]
         await query.edit_message_text("⏱ **سرعت ویو را انتخاب کنید:**", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -576,9 +628,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif data == "set_delay":
         keyboard = [
             [InlineKeyboardButton("۰ ms", callback_data="delay_0")],
-            [InlineKeyboardButton("۵ ms", callback_data="delay_5")],
-            [InlineKeyboardButton("۱۰ ms", callback_data="delay_10")],
             [InlineKeyboardButton("۵۰ ms", callback_data="delay_50")],
+            [InlineKeyboardButton("۱۰۰ ms", callback_data="delay_100")],
+            [InlineKeyboardButton("۵۰۰ ms", callback_data="delay_500")],
+            [InlineKeyboardButton("۱۰۰۰ ms", callback_data="delay_1000")],
             [InlineKeyboardButton("🔙 بازگشت", callback_data="settings")],
         ]
         await query.edit_message_text("🛡 **تاخیر بین ویوها را انتخاب کنید:**", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -613,16 +666,22 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("❌ لطفاً یک لینک معتبر ارسال کنید!", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")]]))
             return
         
-        count = context.user_data.get('target_count', 100)
-        status_msg = await update.message.reply_text(f"🌀 در حال ارسال **{count}** ویو به:\n`{text}`", parse_mode='Markdown')
+        count = context.user_data.get('target_count', 10)
+        status_msg = await update.message.reply_text(f"🌀 در حال ارسال **{count}** ویو به:\n`{text}`\n\n⏳ لطفاً صبر کنید...", parse_mode='Markdown')
         
         try:
             success = await execute_views(text, count, context)
             failed = count - success
             
-            result_text = f"✅ **{success}** ویو با موفقیت ارسال شد!\n❌ **{failed}** ویو ناموفق\n⚡ سرعت: {settings_manager.get('speed')} ویو/ثانیه"
+            result_text = (
+                f"✅ **{success}** ویو با موفقیت ارسال شد!\n"
+                f"❌ **{failed}** ویو ناموفق\n"
+                f"⚡ سرعت: {settings_manager.get('speed')} ویو/ثانیه\n"
+                f"🔍 برای مشاهده جزئیات به لاگ‌ها مراجعه کنید"
+            )
             await status_msg.edit_text(result_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")]]), parse_mode='Markdown')
         except Exception as e:
+            logger.error(f"❌ خطا در اجرای عملیات: {e}")
             await status_msg.edit_text(f"❌ خطا در اجرای عملیات:\n`{str(e)}`", parse_mode='Markdown')
         
         context.user_data.clear()
@@ -686,27 +745,21 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("❌ آیدی باید عددی باشد!", reply_markup=get_users_menu())
         context.user_data.clear()
 
-# ==================== تابع اصلی (اصلاح شده برای پایتون 3.14) ====================
+# ==================== تابع اصلی ====================
 
 async def main() -> None:
-    """تابع اصلی غیرهمزمان برای راه‌اندازی ربات"""
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
-    
     application = Application.builder().token(BOT_TOKEN).build()
     
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    # اجرای Polling به صورت غیرهمزمان
     await application.initialize()
     await application.start()
     await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
     
-    # نگه داشتن ربات در حالت اجرا
+    logger.info("🤖 ربات با موفقیت راه‌اندازی شد!")
+    
     try:
         while True:
             await asyncio.sleep(3600)
