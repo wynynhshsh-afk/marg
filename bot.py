@@ -1,6 +1,5 @@
 # ============================================
-# ربات ویو زن شیشه‌ای - نسخه Render.com
-# پایتون 3.14 - python-telegram-bot v21.8
+# ربات ویو زن شیشه‌ای - نسخه Render (سازگار با پایتون 3.14)
 # ============================================
 
 import asyncio
@@ -21,7 +20,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://your-app-name.onrender.com")
 WEBHOOK_PORT = int(os.environ.get("PORT", 10000))
 
-MASTER_ADMINS = [123456789, 987654321]
+MASTER_ADMINS = [123456789, 987654321]  # آیدی خود را جایگزین کنید
 
 PROXY_LIST = [
     "http://proxy1:8080",
@@ -43,7 +42,7 @@ DEFAULT_SETTINGS = {
     'auto_rotate': True,
 }
 
-# ==================== کلاس مدیریت کاربران ====================
+# ==================== کلاس‌های مدیریت ====================
 
 class UserManager:
     def __init__(self, file_path: str = 'users.json'):
@@ -80,8 +79,6 @@ class UserManager:
     def is_allowed(self, user_id: int) -> bool:
         return user_id in self.users
 
-# ==================== کلاس مدیریت آمار ====================
-
 class StatsManager:
     def __init__(self, file_path: str = 'stats.json'):
         self.file_path = file_path
@@ -107,12 +104,6 @@ class StatsManager:
     def add_failed(self, count: int = 1) -> None:
         self.data['failed'] += count
         self.save()
-    
-    def reset_today(self) -> None:
-        self.data['today'] = 0
-        self.save()
-
-# ==================== کلاس مدیریت تنظیمات ====================
 
 class SettingsManager:
     def __init__(self, file_path: str = 'settings.json'):
@@ -136,7 +127,7 @@ class SettingsManager:
         self.settings[key] = value
         self.save()
 
-# ==================== نمونه‌سازی کلاس‌ها ====================
+# ==================== نمونه‌سازی ====================
 
 user_manager = UserManager()
 stats_manager = StatsManager()
@@ -168,24 +159,9 @@ def get_random_view_menu() -> InlineKeyboardMarkup:
 
 def get_custom_number_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
-        [
-            InlineKeyboardButton("1", callback_data="num_1"),
-            InlineKeyboardButton("2", callback_data="num_2"),
-            InlineKeyboardButton("3", callback_data="num_3"),
-            InlineKeyboardButton("⌫", callback_data="backspace"),
-        ],
-        [
-            InlineKeyboardButton("4", callback_data="num_4"),
-            InlineKeyboardButton("5", callback_data="num_5"),
-            InlineKeyboardButton("6", callback_data="num_6"),
-            InlineKeyboardButton("✅", callback_data="confirm_number"),
-        ],
-        [
-            InlineKeyboardButton("7", callback_data="num_7"),
-            InlineKeyboardButton("8", callback_data="num_8"),
-            InlineKeyboardButton("9", callback_data="num_9"),
-            InlineKeyboardButton("0", callback_data="num_0"),
-        ],
+        [InlineKeyboardButton("1", callback_data="num_1"), InlineKeyboardButton("2", callback_data="num_2"), InlineKeyboardButton("3", callback_data="num_3"), InlineKeyboardButton("⌫", callback_data="backspace")],
+        [InlineKeyboardButton("4", callback_data="num_4"), InlineKeyboardButton("5", callback_data="num_5"), InlineKeyboardButton("6", callback_data="num_6"), InlineKeyboardButton("✅", callback_data="confirm_number")],
+        [InlineKeyboardButton("7", callback_data="num_7"), InlineKeyboardButton("8", callback_data="num_8"), InlineKeyboardButton("9", callback_data="num_9"), InlineKeyboardButton("0", callback_data="num_0")],
         [InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -230,7 +206,7 @@ def get_settings_menu() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# ==================== تابع ارسال ویو ====================
+# ==================== توابع اصلی ویو ====================
 
 async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
     try:
@@ -247,10 +223,7 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
     speed = settings_manager.get('speed')
     delay = settings_manager.get('delay')
     
-    available_proxies = PROXY_LIST.copy()
-    if not available_proxies:
-        available_proxies = [None]
-    
+    available_proxies = PROXY_LIST.copy() if PROXY_LIST else [None]
     batch_size = speed
     total_batches = (count + batch_size - 1) // batch_size
     
@@ -263,13 +236,12 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
             
             headers = {
                 'User-Agent': random.choice([
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
                 ]),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'DNT': '1',
@@ -283,7 +255,6 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
                     'https://www.bing.com/',
                     'https://www.yahoo.com/',
                     'https://www.instagram.com/',
-                    'https://www.facebook.com/',
                 ])
             
             tasks.append(send_view_async(post_url, proxy, headers))
@@ -333,83 +304,53 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     data = query.data
     
     if data == "menu":
-        await query.edit_message_text(
-            "✨💎 **ربات ویو زن شیشه‌ای** 💎✨\n\nمنوی اصلی:",
-            reply_markup=get_glass_menu(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text("✨💎 **ربات ویو زن شیشه‌ای** 💎✨\n\nمنوی اصلی:", reply_markup=get_glass_menu(), parse_mode='Markdown')
         context.user_data.clear()
     
     elif data == "random_view":
-        await query.edit_message_text(
-            "🎲 **تعداد ویو تصادفی را انتخاب کنید:**",
-            reply_markup=get_random_view_menu(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text("🎲 **تعداد ویو تصادفی را انتخاب کنید:**", reply_markup=get_random_view_menu(), parse_mode='Markdown')
     
     elif data.startswith("rand_"):
         count = int(data.split("_")[1])
         actual_count = int(count * random.uniform(0.8, 1.2))
         context.user_data['target_count'] = actual_count
-        context.user_data['view_type'] = 'random'
         context.user_data['state'] = WAITING_FOR_LINK
         
         await query.edit_message_text(
-            f"✅ **{actual_count} ویو** تنظیم شد (محدوده: {count} ± ۲۰%)\n\n"
-            f"📎 لینک پست را ارسال کنید:",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 لغو و بازگشت", callback_data="menu")]
-            ]),
+            f"✅ **{actual_count} ویو** تنظیم شد (محدوده: {count} ± ۲۰%)\n\n📎 لینک پست را ارسال کنید:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 لغو و بازگشت", callback_data="menu")]]),
             parse_mode='Markdown'
         )
     
     elif data == "custom_view":
         context.user_data['number_input'] = ""
-        await query.edit_message_text(
-            "🔢 **تعداد ویو را با دکمه‌ها وارد کنید:**",
-            reply_markup=get_custom_number_keyboard(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text("🔢 **تعداد ویو را با دکمه‌ها وارد کنید:**", reply_markup=get_custom_number_keyboard(), parse_mode='Markdown')
     
     elif data == "backspace":
         if 'number_input' in context.user_data:
             context.user_data['number_input'] = context.user_data['number_input'][:-1]
-        await query.edit_message_text(
-            f"🔢 تعداد: `{context.user_data.get('number_input', '')}`",
-            reply_markup=get_custom_number_keyboard(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text(f"🔢 تعداد: `{context.user_data.get('number_input', '')}`", reply_markup=get_custom_number_keyboard(), parse_mode='Markdown')
     
     elif data.startswith("num_"):
         digit = data.split("_")[1]
         if 'number_input' not in context.user_data:
             context.user_data['number_input'] = ""
         context.user_data['number_input'] += digit
-        await query.edit_message_text(
-            f"🔢 تعداد: `{context.user_data['number_input']}`",
-            reply_markup=get_custom_number_keyboard(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text(f"🔢 تعداد: `{context.user_data['number_input']}`", reply_markup=get_custom_number_keyboard(), parse_mode='Markdown')
     
     elif data == "confirm_number":
         if 'number_input' in context.user_data and context.user_data['number_input']:
             count = int(context.user_data['number_input'])
             if count < 1 or count > 1000000:
-                await query.edit_message_text(
-                    "❌ تعداد باید بین ۱ تا ۱,۰۰۰,۰۰۰ باشد!",
-                    reply_markup=get_custom_number_keyboard()
-                )
+                await query.edit_message_text("❌ تعداد باید بین ۱ تا ۱,۰۰۰,۰۰۰ باشد!", reply_markup=get_custom_number_keyboard())
                 return
             
             context.user_data['target_count'] = count
-            context.user_data['view_type'] = 'custom'
             context.user_data['state'] = WAITING_FOR_LINK
             
             await query.edit_message_text(
                 f"✅ **{count} ویو** تنظیم شد.\n\n📎 لینک پست را ارسال کنید:",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔙 لغو و بازگشت", callback_data="menu")]
-                ]),
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 لغو و بازگشت", callback_data="menu")]]),
                 parse_mode='Markdown'
             )
     
@@ -429,25 +370,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif data.startswith("stats_"):
         period = data.split("_")[1]
         if period == "today":
-            await query.edit_message_text(
-                f"📅 **آمار امروز:**\n✅ {stats_manager.data['today']} ویو موفق",
-                reply_markup=get_stats_menu()
-            )
+            await query.edit_message_text(f"📅 **آمار امروز:**\n✅ {stats_manager.data['today']} ویو موفق", reply_markup=get_stats_menu())
         elif period == "week":
-            await query.edit_message_text(
-                f"📆 **آمار این هفته:**\n✅ {stats_manager.data['week']} ویو موفق",
-                reply_markup=get_stats_menu()
-            )
+            await query.edit_message_text(f"📆 **آمار این هفته:**\n✅ {stats_manager.data['week']} ویو موفق", reply_markup=get_stats_menu())
         elif period == "month":
-            await query.edit_message_text(
-                f"📈 **آمار این ماه:**\n✅ {stats_manager.data['month']} ویو موفق",
-                reply_markup=get_stats_menu()
-            )
+            await query.edit_message_text(f"📈 **آمار این ماه:**\n✅ {stats_manager.data['month']} ویو موفق", reply_markup=get_stats_menu())
         elif period == "total":
-            await query.edit_message_text(
-                f"📊 **آمار کل:**\n✅ {stats_manager.data['total']} ویو موفق\n❌ {stats_manager.data['failed']} ویو ناموفق",
-                reply_markup=get_stats_menu()
-            )
+            await query.edit_message_text(f"📊 **آمار کل:**\n✅ {stats_manager.data['total']} ویو موفق\n❌ {stats_manager.data['failed']} ویو ناموفق", reply_markup=get_stats_menu())
     
     elif data == "proxy":
         await query.edit_message_text(
@@ -461,117 +390,62 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif data == "proxy_auto":
         current = settings_manager.get('auto_rotate')
         settings_manager.set('auto_rotate', not current)
-        await query.edit_message_text(
-            f"🔄 چرخش خودکار: **{'✅ فعال' if settings_manager.get('auto_rotate') else '❌ غیرفعال'}**",
-            reply_markup=get_proxy_menu(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text(f"🔄 چرخش خودکار: **{'✅ فعال' if settings_manager.get('auto_rotate') else '❌ غیرفعال'}**", reply_markup=get_proxy_menu(), parse_mode='Markdown')
     
     elif data == "proxy_add":
         await query.edit_message_text(
-            "🌐 **لطفاً پروکسی جدید را به فرمت زیر وارد کنید:**\n\n"
-            "`http://ip:port`\n"
-            "یا\n"
-            "`socks5://ip:port`\n\n"
-            "مثال: `http://192.168.1.1:8080`",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 لغو", callback_data="proxy")]
-            ]),
+            "🌐 **لطفاً پروکسی جدید را به فرمت زیر وارد کنید:**\n\n`http://ip:port`\nیا\n`socks5://ip:port`\n\nمثال: `http://192.168.1.1:8080`",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 لغو", callback_data="proxy")]]),
             parse_mode='Markdown'
         )
         context.user_data['state'] = WAITING_FOR_PROXY
     
     elif data == "proxy_list":
         if not PROXY_LIST:
-            await query.edit_message_text(
-                "📋 **لیست پروکسی‌ها خالی است!**",
-                reply_markup=get_proxy_menu()
-            )
+            await query.edit_message_text("📋 **لیست پروکسی‌ها خالی است!**", reply_markup=get_proxy_menu())
             return
         
-        proxy_text = "📋 **۵ پروکسی آخر:**\n\n"
-        for i, proxy in enumerate(PROXY_LIST[-5:], 1):
-            proxy_text += f"{i}. `{proxy}`\n"
-        
-        keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]
-        ]
-        await query.edit_message_text(
-            proxy_text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode='Markdown'
-        )
+        proxy_text = "📋 **۵ پروکسی آخر:**\n\n" + "\n".join([f"{i}. `{proxy}`" for i, proxy in enumerate(PROXY_LIST[-5:], 1)])
+        await query.edit_message_text(proxy_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]]), parse_mode='Markdown')
     
     elif data == "proxy_clear":
-        keyboard = [
-            [InlineKeyboardButton("✅ بله، پاک کن", callback_data="proxy_clear_confirm")],
-            [InlineKeyboardButton("❌ لغو", callback_data="proxy")],
-        ]
-        await query.edit_message_text(
-            "⚠️ **آیا از پاک کردن همه پروکسی‌ها مطمئن هستید؟**",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        keyboard = [[InlineKeyboardButton("✅ بله، پاک کن", callback_data="proxy_clear_confirm")], [InlineKeyboardButton("❌ لغو", callback_data="proxy")]]
+        await query.edit_message_text("⚠️ **آیا از پاک کردن همه پروکسی‌ها مطمئن هستید؟**", reply_markup=InlineKeyboardMarkup(keyboard))
     
     elif data == "proxy_clear_confirm":
         PROXY_LIST.clear()
-        await query.edit_message_text(
-            "🗑 **همه پروکسی‌ها پاک شدند!**",
-            reply_markup=get_proxy_menu()
-        )
+        await query.edit_message_text("🗑 **همه پروکسی‌ها پاک شدند!**", reply_markup=get_proxy_menu())
     
     elif data == "users":
         if user_id not in MASTER_ADMINS:
-            await query.edit_message_text(
-                "⛔ فقط ادمین اصلی دسترسی دارد!",
-                reply_markup=get_glass_menu()
-            )
+            await query.edit_message_text("⛔ فقط ادمین اصلی دسترسی دارد!", reply_markup=get_glass_menu())
             return
-        await query.edit_message_text(
-            "👥 **مدیریت کاربران:**\n\n"
-            f"👤 تعداد کاربران مجاز: **{len(user_manager.users)}** نفر",
-            reply_markup=get_users_menu(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text(f"👥 **مدیریت کاربران:**\n\n👤 تعداد کاربران مجاز: **{len(user_manager.users)}** نفر", reply_markup=get_users_menu(), parse_mode='Markdown')
     
     elif data == "user_add":
         if user_id not in MASTER_ADMINS:
             await query.edit_message_text("⛔ دسترسی غیرمجاز!", reply_markup=get_glass_menu())
             return
         await query.edit_message_text(
-            "➕ **آیدی عددی کاربر جدید را وارد کنید:**\n\n"
-            "مثال: `123456789`",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 لغو", callback_data="users")]
-            ]),
+            "➕ **آیدی عددی کاربر جدید را وارد کنید:**\n\nمثال: `123456789`",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 لغو", callback_data="users")]]),
             parse_mode='Markdown'
         )
         context.user_data['state'] = WAITING_FOR_USER
-        context.user_data['user_action'] = 'add'
     
     elif data == "user_remove":
         if user_id not in MASTER_ADMINS:
             await query.edit_message_text("⛔ دسترسی غیرمجاز!", reply_markup=get_glass_menu())
             return
         
-        keyboard = []
-        for uid in user_manager.users:
-            if uid not in MASTER_ADMINS:
-                keyboard.append([
-                    InlineKeyboardButton(f"❌ {uid}", callback_data=f"remove_{uid}")
-                ])
+        keyboard = [[InlineKeyboardButton(f"❌ {uid}", callback_data=f"remove_{uid}")] for uid in user_manager.users if uid not in MASTER_ADMINS]
         keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="users")])
         
         if len(keyboard) == 1:
-            await query.edit_message_text(
-                "👥 **هیچ کاربر غیرادمینی وجود ندارد!**",
-                reply_markup=get_users_menu()
-            )
+            await query.edit_message_text("👥 **هیچ کاربر غیرادمینی وجود ندارد!**", reply_markup=get_users_menu())
             return
         
-        await query.edit_message_text(
-            "👥 **لیست کاربران (برای حذف کلیک کنید):**",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.edit_message_text("👥 **لیست کاربران (برای حذف کلیک کنید):**", reply_markup=InlineKeyboardMarkup(keyboard))
     
     elif data.startswith("remove_"):
         if user_id not in MASTER_ADMINS:
@@ -580,30 +454,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
         remove_id = int(data.split("_")[1])
         if user_manager.remove_user(remove_id):
-            await query.edit_message_text(
-                f"✅ کاربر {remove_id} با موفقیت حذف شد!",
-                reply_markup=get_users_menu()
-            )
+            await query.edit_message_text(f"✅ کاربر {remove_id} با موفقیت حذف شد!", reply_markup=get_users_menu())
         else:
-            await query.edit_message_text(
-                f"❌ کاربر {remove_id} یافت نشد یا ادمین است!",
-                reply_markup=get_users_menu()
-            )
+            await query.edit_message_text(f"❌ کاربر {remove_id} یافت نشد یا ادمین است!", reply_markup=get_users_menu())
     
     elif data == "user_list":
         if user_id not in MASTER_ADMINS:
             await query.edit_message_text("⛔ دسترسی غیرمجاز!", reply_markup=get_glass_menu())
             return
         
-        user_text = "👥 **لیست کاربران مجاز:**\n\n"
-        for uid in user_manager.users:
-            user_text += f"🔹 `{uid}` {'⭐ (ادمین)' if uid in MASTER_ADMINS else ''}\n"
-        
-        await query.edit_message_text(
-            user_text,
-            reply_markup=get_users_menu(),
-            parse_mode='Markdown'
-        )
+        user_text = "👥 **لیست کاربران مجاز:**\n\n" + "\n".join([f"🔹 `{uid}` {'⭐ (ادمین)' if uid in MASTER_ADMINS else ''}" for uid in user_manager.users])
+        await query.edit_message_text(user_text, reply_markup=get_users_menu(), parse_mode='Markdown')
     
     elif data == "settings":
         await query.edit_message_text(
@@ -624,18 +485,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             [InlineKeyboardButton("۵۰۰۰/ثانیه", callback_data="speed_5000")],
             [InlineKeyboardButton("🔙 بازگشت", callback_data="settings")],
         ]
-        await query.edit_message_text(
-            "⏱ **سرعت ویو را انتخاب کنید:**",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.edit_message_text("⏱ **سرعت ویو را انتخاب کنید:**", reply_markup=InlineKeyboardMarkup(keyboard))
     
     elif data.startswith("speed_"):
         speed = int(data.split("_")[1])
         settings_manager.set('speed', speed)
-        await query.edit_message_text(
-            f"✅ سرعت به **{speed}** ویو/ثانیه تغییر کرد!",
-            reply_markup=get_settings_menu()
-        )
+        await query.edit_message_text(f"✅ سرعت به **{speed}** ویو/ثانیه تغییر کرد!", reply_markup=get_settings_menu())
     
     elif data == "set_delay":
         keyboard = [
@@ -645,34 +500,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             [InlineKeyboardButton("۵۰ ms", callback_data="delay_50")],
             [InlineKeyboardButton("🔙 بازگشت", callback_data="settings")],
         ]
-        await query.edit_message_text(
-            "🛡 **تاخیر بین ویوها را انتخاب کنید:**",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.edit_message_text("🛡 **تاخیر بین ویوها را انتخاب کنید:**", reply_markup=InlineKeyboardMarkup(keyboard))
     
     elif data.startswith("delay_"):
         delay = int(data.split("_")[1])
         settings_manager.set('delay', delay)
-        await query.edit_message_text(
-            f"✅ تاخیر به **{delay}** میلی‌ثانیه تغییر کرد!",
-            reply_markup=get_settings_menu()
-        )
+        await query.edit_message_text(f"✅ تاخیر به **{delay}** میلی‌ثانیه تغییر کرد!", reply_markup=get_settings_menu())
     
     elif data == "set_header":
         current = settings_manager.get('random_header')
         settings_manager.set('random_header', not current)
-        await query.edit_message_text(
-            f"🌍 هدر تصادفی: **{'✅ فعال' if settings_manager.get('random_header') else '❌ غیرفعال'}**",
-            reply_markup=get_settings_menu(),
-            parse_mode='Markdown'
-        )
+        await query.edit_message_text(f"🌍 هدر تصادفی: **{'✅ فعال' if settings_manager.get('random_header') else '❌ غیرفعال'}**", reply_markup=get_settings_menu(), parse_mode='Markdown')
     
     elif data == "save_settings":
         settings_manager.save()
-        await query.edit_message_text(
-            "💾 **تنظیمات با موفقیت ذخیره شد!**",
-            reply_markup=get_settings_menu()
-        )
+        await query.edit_message_text("💾 **تنظیمات با موفقیت ذخیره شد!**", reply_markup=get_settings_menu())
 
 # ==================== هندلر دریافت متن ====================
 
@@ -687,65 +529,29 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     
     if state == WAITING_FOR_LINK:
         if not text.startswith(('http://', 'https://')):
-            await update.message.reply_text(
-                "❌ لطفاً یک لینک معتبر ارسال کنید!",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")]
-                ])
-            )
+            await update.message.reply_text("❌ لطفاً یک لینک معتبر ارسال کنید!", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")]]))
             return
         
         count = context.user_data.get('target_count', 100)
-        
-        status_msg = await update.message.reply_text(
-            f"🌀 در حال ارسال **{count}** ویو به:\n`{text}`",
-            parse_mode='Markdown'
-        )
+        status_msg = await update.message.reply_text(f"🌀 در حال ارسال **{count}** ویو به:\n`{text}`", parse_mode='Markdown')
         
         try:
             success = await execute_views(text, count, context)
             failed = count - success
             
-            result_text = (
-                f"✅ **{success}** ویو با موفقیت ارسال شد!\n"
-                f"❌ **{failed}** ویو ناموفق\n"
-                f"⚡ سرعت: {settings_manager.get('speed')} ویو/ثانیه"
-            )
-            
-            await status_msg.edit_text(
-                result_text,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")]
-                ]),
-                parse_mode='Markdown'
-            )
-            
+            result_text = f"✅ **{success}** ویو با موفقیت ارسال شد!\n❌ **{failed}** ویو ناموفق\n⚡ سرعت: {settings_manager.get('speed')} ویو/ثانیه"
+            await status_msg.edit_text(result_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")]]), parse_mode='Markdown')
         except Exception as e:
-            await status_msg.edit_text(
-                f"❌ خطا در اجرای عملیات:\n`{str(e)}`",
-                parse_mode='Markdown'
-            )
+            await status_msg.edit_text(f"❌ خطا در اجرای عملیات:\n`{str(e)}`", parse_mode='Markdown')
         
         context.user_data.clear()
     
     elif state == WAITING_FOR_PROXY:
         if '://' in text and ':' in text.split('://')[1]:
             PROXY_LIST.append(text)
-            await update.message.reply_text(
-                f"✅ پروکسی `{text}` با موفقیت اضافه شد!\n"
-                f"📋 تعداد کل پروکسی‌ها: **{len(PROXY_LIST)}** عدد",
-                reply_markup=get_proxy_menu(),
-                parse_mode='Markdown'
-            )
+            await update.message.reply_text(f"✅ پروکسی `{text}` با موفقیت اضافه شد!\n📋 تعداد کل پروکسی‌ها: **{len(PROXY_LIST)}** عدد", reply_markup=get_proxy_menu(), parse_mode='Markdown')
         else:
-            await update.message.reply_text(
-                "❌ فرمت پروکسی نامعتبر!\n"
-                "لطفاً به فرمت `http://ip:port` وارد کنید.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]
-                ]),
-                parse_mode='Markdown'
-            )
+            await update.message.reply_text("❌ فرمت پروکسی نامعتبر!\nلطفاً به فرمت `http://ip:port` وارد کنید.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]]), parse_mode='Markdown')
         context.user_data.clear()
     
     elif state == WAITING_FOR_USER:
@@ -756,27 +562,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         try:
             new_user_id = int(text)
             if user_manager.add_user(new_user_id):
-                await update.message.reply_text(
-                    f"✅ کاربر `{new_user_id}` با موفقیت اضافه شد!",
-                    reply_markup=get_users_menu(),
-                    parse_mode='Markdown'
-                )
+                await update.message.reply_text(f"✅ کاربر `{new_user_id}` با موفقیت اضافه شد!", reply_markup=get_users_menu(), parse_mode='Markdown')
             else:
-                await update.message.reply_text(
-                    f"⚠️ کاربر `{new_user_id}` از قبل وجود دارد!",
-                    reply_markup=get_users_menu(),
-                    parse_mode='Markdown'
-                )
+                await update.message.reply_text(f"⚠️ کاربر `{new_user_id}` از قبل وجود دارد!", reply_markup=get_users_menu(), parse_mode='Markdown')
         except ValueError:
-            await update.message.reply_text(
-                "❌ آیدی باید عددی باشد!",
-                reply_markup=get_users_menu()
-            )
+            await update.message.reply_text("❌ آیدی باید عددی باشد!", reply_markup=get_users_menu())
         context.user_data.clear()
 
-# ==================== اجرای اصلی ====================
+# ==================== تابع اصلی (اصلاح شده) ====================
 
-def main() -> None:
+async def run_bot() -> None:
+    """راه‌اندازی ربات با وب‌هوک"""
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
@@ -788,12 +584,18 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    application.run_webhook(
+    await application.initialize()
+    await application.start()
+    
+    await application.updater.start_webhook(
         listen="0.0.0.0",
         port=WEBHOOK_PORT,
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}"
     )
+    
+    logging.info("ربات با موفقیت راه‌اندازی شد!")
+    await asyncio.Event().wait()  # تا ابد منتظر می‌ماند
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(run_bot())
