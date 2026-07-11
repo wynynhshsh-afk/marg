@@ -53,10 +53,7 @@ class UserManager:
     def load(self) -> None:
         if os.path.exists(self.file_path):
             with open(self.file_path, 'r', encoding='utf-8') as f:
-                file_users = json.load(f)
-            # ترکیب کاربران فایل با ادمین‌های اصلی (بدون تکرار)
-            self.users = list(set(file_users + MASTER_ADMINS))
-            self.save()  # ذخیره مجدد برای هماهنگی
+                self.users = json.load(f)
         else:
             self.users = MASTER_ADMINS.copy()
             self.save()
@@ -162,24 +159,9 @@ def get_random_view_menu() -> InlineKeyboardMarkup:
 
 def get_custom_number_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
-        [
-            InlineKeyboardButton("1", callback_data="num_1"),
-            InlineKeyboardButton("2", callback_data="num_2"),
-            InlineKeyboardButton("3", callback_data="num_3"),
-            InlineKeyboardButton("⌫", callback_data="backspace"),
-        ],
-        [
-            InlineKeyboardButton("4", callback_data="num_4"),
-            InlineKeyboardButton("5", callback_data="num_5"),
-            InlineKeyboardButton("6", callback_data="num_6"),
-            InlineKeyboardButton("✅", callback_data="confirm_number"),
-        ],
-        [
-            InlineKeyboardButton("7", callback_data="num_7"),
-            InlineKeyboardButton("8", callback_data="num_8"),
-            InlineKeyboardButton("9", callback_data="num_9"),
-            InlineKeyboardButton("0", callback_data="num_0"),
-        ],
+        [InlineKeyboardButton("1", callback_data="num_1"), InlineKeyboardButton("2", callback_data="num_2"), InlineKeyboardButton("3", callback_data="num_3"), InlineKeyboardButton("⌫", callback_data="backspace")],
+        [InlineKeyboardButton("4", callback_data="num_4"), InlineKeyboardButton("5", callback_data="num_5"), InlineKeyboardButton("6", callback_data="num_6"), InlineKeyboardButton("✅", callback_data="confirm_number")],
+        [InlineKeyboardButton("7", callback_data="num_7"), InlineKeyboardButton("8", callback_data="num_8"), InlineKeyboardButton("9", callback_data="num_9"), InlineKeyboardButton("0", callback_data="num_0")],
         [InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -587,9 +569,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("❌ آیدی باید عددی باشد!", reply_markup=get_users_menu())
         context.user_data.clear()
 
-# ==================== تابع اصلی (نسخه Polling - ساده‌تر برای Render) ====================
+# ==================== تابع اصلی (اصلاح شده) ====================
 
-def main() -> None:
+async def run_bot() -> None:
+    """راه‌اندازی ربات با وب‌هوک"""
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
@@ -601,8 +584,18 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    # استفاده از Polling به جای Webhook (ساده‌تر و بدون نیاز به دامنه)
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    await application.initialize()
+    await application.start()
+    
+    await application.updater.start_webhook(
+        listen="0.0.0.0",
+        port=WEBHOOK_PORT,
+        url_path=BOT_TOKEN,
+        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}"
+    )
+    
+    logging.info("ربات با موفقیت راه‌اندازی شد!")
+    await asyncio.Event().wait()  # تا ابد منتظر می‌ماند
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(run_bot())
