@@ -1,5 +1,5 @@
 # ============================================
-# ربات ویو زن شیشه‌ای - نسخه Render (سازگار با پایتون 3.14)
+# ربات ویو زن شیشه‌ای - نسخه نهایی با پشتیبانی از پروکسی MTProto
 # ============================================
 
 import asyncio
@@ -22,17 +22,33 @@ WEBHOOK_PORT = int(os.environ.get("PORT", 10000))
 
 MASTER_ADMINS = [8540004957, 601668306]  # آیدی خود را جایگزین کنید
 
+# ==================== پروکسی‌های MTProto ====================
+
+# پروکسی‌های MTProto برای اتصال به تلگرام
+MTProto_PROXIES = [
+    {
+        'server': '116.203.140.198',
+        'port': 8443,
+        'secret': 'dd104462821249bd7ac519130220c25d09',
+        'type': 'mtproto'
+    },
+    {
+        'server': 'rain.golgoli2.co.uk',
+        'port': 2096,
+        'secret': 'ee1603010200010001fc030386e24c3add7777772e7961686f6f2e636f6d',
+        'type': 'mtproto'
+    }
+]
+
+# پروکسی‌های HTTP/SOCKS برای ارسال ویو (می‌توانید از همین پروکسی‌های MTProto
+# به عنوان proxy در aiohttp استفاده کنید، اما باید به فرمت HTTP تبدیل شوند)
 PROXY_LIST = [
-    "http://proxy1:8080",
-    "http://proxy2:8080",
+    "http://116.203.140.198:8443",
+    "http://rain.golgoli2.co.uk:2096",
+    # پروکسی‌های اضافی
     "http://proxy3:8080",
     "http://proxy4:8080",
     "http://proxy5:8080",
-    "http://proxy6:8080",
-    "http://proxy7:8080",
-    "http://proxy8:8080",
-    "http://proxy9:8080",
-    "http://proxy10:8080",
 ]
 
 DEFAULT_SETTINGS = {
@@ -40,6 +56,7 @@ DEFAULT_SETTINGS = {
     'delay': 0,
     'random_header': True,
     'auto_rotate': True,
+    'use_mtproto': False,  # اگر True باشد از پروکسی‌های MTProto استفاده می‌کند
 }
 
 # ==================== کلاس‌های مدیریت ====================
@@ -53,7 +70,10 @@ class UserManager:
     def load(self) -> None:
         if os.path.exists(self.file_path):
             with open(self.file_path, 'r', encoding='utf-8') as f:
-                self.users = json.load(f)
+                file_users = json.load(f)
+            # ترکیب کاربران فایل با ادمین‌های اصلی (بدون تکرار)
+            self.users = list(set(file_users + MASTER_ADMINS))
+            self.save()  # ذخیره مجدد برای هماهنگی
         else:
             self.users = MASTER_ADMINS.copy()
             self.save()
@@ -159,9 +179,24 @@ def get_random_view_menu() -> InlineKeyboardMarkup:
 
 def get_custom_number_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton("1", callback_data="num_1"), InlineKeyboardButton("2", callback_data="num_2"), InlineKeyboardButton("3", callback_data="num_3"), InlineKeyboardButton("⌫", callback_data="backspace")],
-        [InlineKeyboardButton("4", callback_data="num_4"), InlineKeyboardButton("5", callback_data="num_5"), InlineKeyboardButton("6", callback_data="num_6"), InlineKeyboardButton("✅", callback_data="confirm_number")],
-        [InlineKeyboardButton("7", callback_data="num_7"), InlineKeyboardButton("8", callback_data="num_8"), InlineKeyboardButton("9", callback_data="num_9"), InlineKeyboardButton("0", callback_data="num_0")],
+        [
+            InlineKeyboardButton("1", callback_data="num_1"),
+            InlineKeyboardButton("2", callback_data="num_2"),
+            InlineKeyboardButton("3", callback_data="num_3"),
+            InlineKeyboardButton("⌫", callback_data="backspace"),
+        ],
+        [
+            InlineKeyboardButton("4", callback_data="num_4"),
+            InlineKeyboardButton("5", callback_data="num_5"),
+            InlineKeyboardButton("6", callback_data="num_6"),
+            InlineKeyboardButton("✅", callback_data="confirm_number"),
+        ],
+        [
+            InlineKeyboardButton("7", callback_data="num_7"),
+            InlineKeyboardButton("8", callback_data="num_8"),
+            InlineKeyboardButton("9", callback_data="num_9"),
+            InlineKeyboardButton("0", callback_data="num_0"),
+        ],
         [InlineKeyboardButton("🔙 بازگشت به منو", callback_data="menu")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -178,8 +213,10 @@ def get_stats_menu() -> InlineKeyboardMarkup:
 
 def get_proxy_menu() -> InlineKeyboardMarkup:
     auto_status = "✅ فعال" if settings_manager.get('auto_rotate') else "❌ غیرفعال"
+    mtproto_status = "✅ فعال" if settings_manager.get('use_mtproto') else "❌ غیرفعال"
     keyboard = [
         [InlineKeyboardButton(f"🔄 چرخش خودکار ({auto_status})", callback_data="proxy_auto")],
+        [InlineKeyboardButton(f"🔮 پروکسی MTProto ({mtproto_status})", callback_data="proxy_mtproto")],
         [InlineKeyboardButton("🌐 افزودن پروکسی", callback_data="proxy_add")],
         [InlineKeyboardButton("📋 لیست پروکسی‌ها", callback_data="proxy_list")],
         [InlineKeyboardButton("🗑 پاک کردن همه", callback_data="proxy_clear")],
@@ -209,6 +246,7 @@ def get_settings_menu() -> InlineKeyboardMarkup:
 # ==================== توابع اصلی ویو ====================
 
 async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
+    """ارسال ویو با استفاده از پروکسی HTTP/SOCKS"""
     try:
         timeout = aiohttp.ClientTimeout(total=3)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -218,12 +256,34 @@ async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
         logging.error(f"ویو ناموفق: {e}")
         return False
 
+async def send_view_mtproto(url: str, proxy: dict, headers: dict) -> bool:
+    """ارسال ویو با استفاده از پروکسی MTProto (از طریق HTTP proxy)"""
+    try:
+        # تبدیل MTProto به HTTP proxy
+        http_proxy = f"http://{proxy['server']}:{proxy['port']}"
+        timeout = aiohttp.ClientTimeout(total=3)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, proxy=http_proxy, headers=headers, ssl=False) as resp:
+                return resp.status in [200, 201, 202, 204, 301, 302]
+    except Exception as e:
+        logging.error(f"ویو با MTProto ناموفق: {e}")
+        return False
+
 async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """اجرای همزمان ویوها با سرعت مشخص"""
     success_count = 0
     speed = settings_manager.get('speed')
     delay = settings_manager.get('delay')
+    use_mtproto = settings_manager.get('use_mtproto')
     
-    available_proxies = PROXY_LIST.copy() if PROXY_LIST else [None]
+    # انتخاب پروکسی‌ها بر اساس تنظیمات
+    if use_mtproto and MTProto_PROXIES:
+        available_proxies = MTProto_PROXIES.copy()
+        proxy_type = 'mtproto'
+    else:
+        available_proxies = PROXY_LIST.copy() if PROXY_LIST else [None]
+        proxy_type = 'http'
+    
     batch_size = speed
     total_batches = (count + batch_size - 1) // batch_size
     
@@ -232,16 +292,21 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
         tasks = []
         
         for _ in range(batch_count):
-            proxy = random.choice(available_proxies) if available_proxies and settings_manager.get('auto_rotate') else None
+            # انتخاب پروکسی تصادفی
+            if available_proxies and settings_manager.get('auto_rotate'):
+                proxy = random.choice(available_proxies)
+            else:
+                proxy = available_proxies[0] if available_proxies else None
             
+            # تولید هدر تصادفی
             headers = {
                 'User-Agent': random.choice([
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-                    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
                 ]),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'DNT': '1',
@@ -255,10 +320,16 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
                     'https://www.bing.com/',
                     'https://www.yahoo.com/',
                     'https://www.instagram.com/',
+                    'https://www.facebook.com/',
                 ])
             
-            tasks.append(send_view_async(post_url, proxy, headers))
+            # ارسال ویو با توجه به نوع پروکسی
+            if proxy_type == 'mtproto' and proxy:
+                tasks.append(send_view_mtproto(post_url, proxy, headers))
+            else:
+                tasks.append(send_view_async(post_url, proxy, headers))
         
+        # اجرای همزمان بچ
         results = await asyncio.gather(*tasks)
         success_count += sum(results)
         
@@ -287,6 +358,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "✨💎 **ربات ویو زن شیشه‌ای** 💎✨\n\n"
         f"🌀 **سرعت:** {settings_manager.get('speed')} ویو در ثانیه\n"
         f"🔮 **پروکسی چرخشی:** {'✅ فعال' if settings_manager.get('auto_rotate') else '❌ غیرفعال'}\n"
+        f"🔐 **پروکسی MTProto:** {'✅ فعال' if settings_manager.get('use_mtproto') else '❌ غیرفعال'}\n"
         "📡 **وضعیت:** 🟢 آنلاین\n\n"
         "از دکمه‌های زیر برای شروع استفاده کنید:"
     )
@@ -381,8 +453,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif data == "proxy":
         await query.edit_message_text(
             "🌍 **مدیریت پروکسی شیشه‌ای:**\n\n"
-            f"📋 تعداد پروکسی‌ها: **{len(PROXY_LIST)}** عدد\n"
-            f"🔄 چرخش خودکار: **{'✅ فعال' if settings_manager.get('auto_rotate') else '❌ غیرفعال'}**",
+            f"📋 تعداد پروکسی‌های HTTP: **{len(PROXY_LIST)}** عدد\n"
+            f"🔮 تعداد پروکسی‌های MTProto: **{len(MTProto_PROXIES)}** عدد\n"
+            f"🔄 چرخش خودکار: **{'✅ فعال' if settings_manager.get('auto_rotate') else '❌ غیرفعال'}**\n"
+            f"🔐 استفاده از MTProto: **{'✅ فعال' if settings_manager.get('use_mtproto') else '❌ غیرفعال'}**",
             reply_markup=get_proxy_menu(),
             parse_mode='Markdown'
         )
@@ -392,21 +466,44 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         settings_manager.set('auto_rotate', not current)
         await query.edit_message_text(f"🔄 چرخش خودکار: **{'✅ فعال' if settings_manager.get('auto_rotate') else '❌ غیرفعال'}**", reply_markup=get_proxy_menu(), parse_mode='Markdown')
     
+    elif data == "proxy_mtproto":
+        current = settings_manager.get('use_mtproto')
+        settings_manager.set('use_mtproto', not current)
+        await query.edit_message_text(f"🔐 استفاده از MTProto: **{'✅ فعال' if settings_manager.get('use_mtproto') else '❌ غیرفعال'}**", reply_markup=get_proxy_menu(), parse_mode='Markdown')
+    
     elif data == "proxy_add":
         await query.edit_message_text(
-            "🌐 **لطفاً پروکسی جدید را به فرمت زیر وارد کنید:**\n\n`http://ip:port`\nیا\n`socks5://ip:port`\n\nمثال: `http://192.168.1.1:8080`",
+            "🌐 **لطفاً پروکسی جدید را به فرمت زیر وارد کنید:**\n\n"
+            "**HTTP:** `http://ip:port`\n"
+            "**MTProto:** `tg://proxy?server=ip&port=port&secret=secret`\n\n"
+            "مثال HTTP: `http://192.168.1.1:8080`\n"
+            "مثال MTProto: `tg://proxy?server=116.203.140.198&port=8443&secret=dd104462...`",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 لغو", callback_data="proxy")]]),
             parse_mode='Markdown'
         )
         context.user_data['state'] = WAITING_FOR_PROXY
     
     elif data == "proxy_list":
-        if not PROXY_LIST:
-            await query.edit_message_text("📋 **لیست پروکسی‌ها خالی است!**", reply_markup=get_proxy_menu())
-            return
+        proxy_text = "📋 **لیست پروکسی‌ها:**\n\n"
+        proxy_text += "**HTTP Proxy:**\n"
+        if PROXY_LIST:
+            for i, proxy in enumerate(PROXY_LIST[-5:], 1):
+                proxy_text += f"{i}. `{proxy}`\n"
+        else:
+            proxy_text += "❌ هیچ پروکسی HTTP موجود نیست\n"
         
-        proxy_text = "📋 **۵ پروکسی آخر:**\n\n" + "\n".join([f"{i}. `{proxy}`" for i, proxy in enumerate(PROXY_LIST[-5:], 1)])
-        await query.edit_message_text(proxy_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]]), parse_mode='Markdown')
+        proxy_text += "\n**MTProto Proxy:**\n"
+        if MTProto_PROXIES:
+            for i, proxy in enumerate(MTProto_PROXIES[-5:], 1):
+                proxy_text += f"{i}. `{proxy['server']}:{proxy['port']}`\n"
+        else:
+            proxy_text += "❌ هیچ پروکسی MTProto موجود نیست\n"
+        
+        await query.edit_message_text(
+            proxy_text,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]]),
+            parse_mode='Markdown'
+        )
     
     elif data == "proxy_clear":
         keyboard = [[InlineKeyboardButton("✅ بله، پاک کن", callback_data="proxy_clear_confirm")], [InlineKeyboardButton("❌ لغو", callback_data="proxy")]]
@@ -414,6 +511,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     elif data == "proxy_clear_confirm":
         PROXY_LIST.clear()
+        MTProto_PROXIES.clear()
         await query.edit_message_text("🗑 **همه پروکسی‌ها پاک شدند!**", reply_markup=get_proxy_menu())
     
     elif data == "users":
@@ -472,7 +570,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"⏱ سرعت: **{settings_manager.get('speed')}** ویو/ثانیه\n"
             f"🛡 تاخیر: **{settings_manager.get('delay')}** ms\n"
             f"🌍 هدر تصادفی: **{'✅' if settings_manager.get('random_header') else '❌'}**\n"
-            f"🔄 چرخش خودکار: **{'✅' if settings_manager.get('auto_rotate') else '❌'}**",
+            f"🔄 چرخش خودکار: **{'✅' if settings_manager.get('auto_rotate') else '❌'}**\n"
+            f"🔐 استفاده از MTProto: **{'✅' if settings_manager.get('use_mtproto') else '❌'}**",
             reply_markup=get_settings_menu(),
             parse_mode='Markdown'
         )
@@ -547,11 +646,51 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         context.user_data.clear()
     
     elif state == WAITING_FOR_PROXY:
-        if '://' in text and ':' in text.split('://')[1]:
+        # تشخیص نوع پروکسی
+        if text.startswith('tg://proxy?'):
+            # پردازش پروکسی MTProto
+            import urllib.parse
+            parsed = urllib.parse.parse_qs(urllib.parse.urlparse(text).query)
+            if 'server' in parsed and 'port' in parsed and 'secret' in parsed:
+                new_proxy = {
+                    'server': parsed['server'][0],
+                    'port': int(parsed['port'][0]),
+                    'secret': parsed['secret'][0],
+                    'type': 'mtproto'
+                }
+                MTProto_PROXIES.append(new_proxy)
+                await update.message.reply_text(
+                    f"✅ پروکسی MTProto با موفقیت اضافه شد!\n"
+                    f"🌐 سرور: `{new_proxy['server']}:{new_proxy['port']}`\n"
+                    f"📋 تعداد کل پروکسی‌های MTProto: **{len(MTProto_PROXIES)}** عدد",
+                    reply_markup=get_proxy_menu(),
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text(
+                    "❌ فرمت پروکسی MTProto نامعتبر!\n"
+                    "لطفاً به فرمت `tg://proxy?server=ip&port=port&secret=secret` وارد کنید.",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]]),
+                    parse_mode='Markdown'
+                )
+        elif '://' in text and ':' in text.split('://')[1]:
+            # پروکسی HTTP
             PROXY_LIST.append(text)
-            await update.message.reply_text(f"✅ پروکسی `{text}` با موفقیت اضافه شد!\n📋 تعداد کل پروکسی‌ها: **{len(PROXY_LIST)}** عدد", reply_markup=get_proxy_menu(), parse_mode='Markdown')
+            await update.message.reply_text(
+                f"✅ پروکسی HTTP `{text}` با موفقیت اضافه شد!\n"
+                f"📋 تعداد کل پروکسی‌های HTTP: **{len(PROXY_LIST)}** عدد",
+                reply_markup=get_proxy_menu(),
+                parse_mode='Markdown'
+            )
         else:
-            await update.message.reply_text("❌ فرمت پروکسی نامعتبر!\nلطفاً به فرمت `http://ip:port` وارد کنید.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]]), parse_mode='Markdown')
+            await update.message.reply_text(
+                "❌ فرمت پروکسی نامعتبر!\n"
+                "لطفاً به فرمت:\n"
+                "- HTTP: `http://ip:port`\n"
+                "- MTProto: `tg://proxy?server=ip&port=port&secret=secret`",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="proxy")]]),
+                parse_mode='Markdown'
+            )
         context.user_data.clear()
     
     elif state == WAITING_FOR_USER:
@@ -569,10 +708,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("❌ آیدی باید عددی باشد!", reply_markup=get_users_menu())
         context.user_data.clear()
 
-# ==================== تابع اصلی (اصلاح شده) ====================
+# ==================== تابع اصلی ====================
 
-async def run_bot() -> None:
-    """راه‌اندازی ربات با وب‌هوک"""
+def main() -> None:
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
@@ -584,18 +722,8 @@ async def run_bot() -> None:
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    await application.initialize()
-    await application.start()
-    
-    await application.updater.start_webhook(
-        listen="0.0.0.0",
-        port=WEBHOOK_PORT,
-        url_path=BOT_TOKEN,
-        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}"
-    )
-    
-    logging.info("ربات با موفقیت راه‌اندازی شد!")
-    await asyncio.Event().wait()  # تا ابد منتظر می‌ماند
+    # استفاده از Polling (ساده‌تر برای Render)
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    asyncio.run(run_bot())
+    main()
