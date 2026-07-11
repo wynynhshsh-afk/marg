@@ -1,6 +1,6 @@
 # ============================================
-# ربات ویو زن شیشه‌ای - کد کامل
-# پایتون 3.14 - python-telegram-bot v21.8
+# ربات ویو زن شیشه‌ای - نسخه پایتون 3.14
+# کاملاً سازگار با Render
 # ============================================
 
 import asyncio
@@ -10,7 +10,7 @@ import json
 import os
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters, ContextTypes
@@ -32,7 +32,12 @@ PROXY_LIST = [
     "http://proxy3:8080",
     "http://proxy4:8080",
     "http://proxy5:8080",
-    # ... ۴۵ پروکسی دیگر اضافه کنید
+    "http://proxy6:8080",
+    "http://proxy7:8080",
+    "http://proxy8:8080",
+    "http://proxy9:8080",
+    "http://proxy10:8080",
+    # ... ۴۰ پروکسی دیگر اضافه کنید
 ]
 
 # تنظیمات پیش‌فرض
@@ -46,93 +51,93 @@ DEFAULT_SETTINGS = {
 # ==================== کلاس مدیریت کاربران ====================
 
 class UserManager:
-    def __init__(self, file_path='users.json'):
+    def __init__(self, file_path: str = 'users.json'):
         self.file_path = file_path
-        self.users = []
+        self.users: List[int] = []
         self.load()
     
-    def load(self):
+    def load(self) -> None:
         if os.path.exists(self.file_path):
-            with open(self.file_path, 'r') as f:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
                 self.users = json.load(f)
         else:
             self.users = MASTER_ADMINS.copy()
             self.save()
     
-    def save(self):
-        with open(self.file_path, 'w') as f:
-            json.dump(self.users, f)
+    def save(self) -> None:
+        with open(self.file_path, 'w', encoding='utf-8') as f:
+            json.dump(self.users, f, indent=2)
     
-    def add_user(self, user_id: int):
+    def add_user(self, user_id: int) -> bool:
         if user_id not in self.users:
             self.users.append(user_id)
             self.save()
             return True
         return False
     
-    def remove_user(self, user_id: int):
+    def remove_user(self, user_id: int) -> bool:
         if user_id in self.users and user_id not in MASTER_ADMINS:
             self.users.remove(user_id)
             self.save()
             return True
         return False
     
-    def is_allowed(self, user_id: int):
+    def is_allowed(self, user_id: int) -> bool:
         return user_id in self.users
 
 # ==================== کلاس مدیریت آمار ====================
 
 class StatsManager:
-    def __init__(self, file_path='stats.json'):
+    def __init__(self, file_path: str = 'stats.json'):
         self.file_path = file_path
-        self.data = {'today': 0, 'week': 0, 'month': 0, 'total': 0, 'failed': 0}
+        self.data: Dict[str, int] = {'today': 0, 'week': 0, 'month': 0, 'total': 0, 'failed': 0}
         self.load()
     
-    def load(self):
+    def load(self) -> None:
         if os.path.exists(self.file_path):
-            with open(self.file_path, 'r') as f:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
                 self.data = json.load(f)
     
-    def save(self):
-        with open(self.file_path, 'w') as f:
-            json.dump(self.data, f)
+    def save(self) -> None:
+        with open(self.file_path, 'w', encoding='utf-8') as f:
+            json.dump(self.data, f, indent=2)
     
-    def add_success(self, count: int):
+    def add_success(self, count: int) -> None:
         self.data['today'] += count
         self.data['week'] += count
         self.data['month'] += count
         self.data['total'] += count
         self.save()
     
-    def add_failed(self, count: int = 1):
+    def add_failed(self, count: int = 1) -> None:
         self.data['failed'] += count
         self.save()
     
-    def reset_today(self):
+    def reset_today(self) -> None:
         self.data['today'] = 0
         self.save()
 
 # ==================== کلاس مدیریت تنظیمات ====================
 
 class SettingsManager:
-    def __init__(self, file_path='settings.json'):
+    def __init__(self, file_path: str = 'settings.json'):
         self.file_path = file_path
-        self.settings = DEFAULT_SETTINGS.copy()
+        self.settings: Dict[str, Any] = DEFAULT_SETTINGS.copy()
         self.load()
     
-    def load(self):
+    def load(self) -> None:
         if os.path.exists(self.file_path):
-            with open(self.file_path, 'r') as f:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
                 self.settings = json.load(f)
     
-    def save(self):
-        with open(self.file_path, 'w') as f:
-            json.dump(self.settings, f)
+    def save(self) -> None:
+        with open(self.file_path, 'w', encoding='utf-8') as f:
+            json.dump(self.settings, f, indent=2)
     
-    def get(self, key):
+    def get(self, key: str) -> Any:
         return self.settings.get(key, DEFAULT_SETTINGS.get(key))
     
-    def set(self, key, value):
+    def set(self, key: str, value: Any) -> None:
         self.settings[key] = value
         self.save()
 
@@ -144,7 +149,7 @@ settings_manager = SettingsManager()
 
 # ==================== توابع کیبورد ====================
 
-def get_glass_menu():
+def get_glass_menu() -> InlineKeyboardMarkup:
     """منوی اصلی با استایل شیشه‌ای"""
     keyboard = [
         [InlineKeyboardButton("💎 ویو تصادفی", callback_data="random_view")],
@@ -156,7 +161,7 @@ def get_glass_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_random_view_menu():
+def get_random_view_menu() -> InlineKeyboardMarkup:
     """منوی انتخاب تعداد تصادفی"""
     keyboard = [
         [InlineKeyboardButton("🎲 ۱۰۰ ویو", callback_data="rand_100")],
@@ -168,7 +173,7 @@ def get_random_view_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_custom_number_keyboard():
+def get_custom_number_keyboard() -> InlineKeyboardMarkup:
     """کیبورد عددی برای ویو دلخواه"""
     keyboard = [
         [
@@ -193,7 +198,7 @@ def get_custom_number_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_stats_menu():
+def get_stats_menu() -> InlineKeyboardMarkup:
     """منوی آمار"""
     keyboard = [
         [InlineKeyboardButton("📅 امروز", callback_data="stats_today")],
@@ -204,7 +209,7 @@ def get_stats_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_proxy_menu():
+def get_proxy_menu() -> InlineKeyboardMarkup:
     """منوی مدیریت پروکسی"""
     auto_status = "✅ فعال" if settings_manager.get('auto_rotate') else "❌ غیرفعال"
     keyboard = [
@@ -216,7 +221,7 @@ def get_proxy_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_users_menu():
+def get_users_menu() -> InlineKeyboardMarkup:
     """منوی مدیریت کاربران (فقط ادمین)"""
     keyboard = [
         [InlineKeyboardButton("➕ افزودن کاربر", callback_data="user_add")],
@@ -226,7 +231,7 @@ def get_users_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_settings_menu():
+def get_settings_menu() -> InlineKeyboardMarkup:
     """منوی تنظیمات"""
     keyboard = [
         [InlineKeyboardButton("⏱ سرعت ویو", callback_data="set_speed")],
@@ -322,7 +327,7 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
 # وضعیت‌های مکالمه
 WAITING_FOR_LINK, WAITING_FOR_PROXY, WAITING_FOR_USER = range(3)
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """دستور /start"""
     user_id = update.effective_user.id
     if not user_manager.is_allowed(user_id):
@@ -338,7 +343,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(welcome_text, reply_markup=get_glass_menu(), parse_mode='Markdown')
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """مدیریت تمام کلیک‌های دکمه‌ها"""
     query = update.callback_query
     await query.answer()
@@ -703,7 +708,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ==================== هندلر دریافت متن ====================
 
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """دریافت متن از کاربر (لینک، پروکسی، آیدی کاربر)"""
     user_id = update.effective_user.id
     if not user_manager.is_allowed(user_id):
@@ -810,7 +815,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ==================== اجرای اصلی ====================
 
-def main():
+def main() -> None:
     """اجرای ربات با وب‌هوک برای Render"""
     # تنظیم لاگ
     logging.basicConfig(
