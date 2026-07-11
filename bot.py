@@ -1,5 +1,6 @@
 # ============================================
 # ربات ویو زن شیشه‌ای - نسخه نهایی با پشتیبانی از پروکسی MTProto
+# کاملاً سازگار با پایتون 3.14 و Render
 # ============================================
 
 import asyncio
@@ -8,6 +9,7 @@ import random
 import json
 import os
 import logging
+import urllib.parse
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
@@ -17,14 +19,10 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 # ==================== تنظیمات اولیه ====================
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://your-app-name.onrender.com")
-WEBHOOK_PORT = int(os.environ.get("PORT", 10000))
-
 MASTER_ADMINS = [8540004957, 601668306]  # آیدی خود را جایگزین کنید
 
 # ==================== پروکسی‌های MTProto ====================
 
-# پروکسی‌های MTProto برای اتصال به تلگرام
 MTProto_PROXIES = [
     {
         'server': '116.203.140.198',
@@ -40,15 +38,9 @@ MTProto_PROXIES = [
     }
 ]
 
-# پروکسی‌های HTTP/SOCKS برای ارسال ویو (می‌توانید از همین پروکسی‌های MTProto
-# به عنوان proxy در aiohttp استفاده کنید، اما باید به فرمت HTTP تبدیل شوند)
 PROXY_LIST = [
     "http://116.203.140.198:8443",
     "http://rain.golgoli2.co.uk:2096",
-    # پروکسی‌های اضافی
-    "http://proxy3:8080",
-    "http://proxy4:8080",
-    "http://proxy5:8080",
 ]
 
 DEFAULT_SETTINGS = {
@@ -56,7 +48,7 @@ DEFAULT_SETTINGS = {
     'delay': 0,
     'random_header': True,
     'auto_rotate': True,
-    'use_mtproto': False,  # اگر True باشد از پروکسی‌های MTProto استفاده می‌کند
+    'use_mtproto': False,
 }
 
 # ==================== کلاس‌های مدیریت ====================
@@ -71,9 +63,8 @@ class UserManager:
         if os.path.exists(self.file_path):
             with open(self.file_path, 'r', encoding='utf-8') as f:
                 file_users = json.load(f)
-            # ترکیب کاربران فایل با ادمین‌های اصلی (بدون تکرار)
             self.users = list(set(file_users + MASTER_ADMINS))
-            self.save()  # ذخیره مجدد برای هماهنگی
+            self.save()
         else:
             self.users = MASTER_ADMINS.copy()
             self.save()
@@ -246,7 +237,6 @@ def get_settings_menu() -> InlineKeyboardMarkup:
 # ==================== توابع اصلی ویو ====================
 
 async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
-    """ارسال ویو با استفاده از پروکسی HTTP/SOCKS"""
     try:
         timeout = aiohttp.ClientTimeout(total=3)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -257,9 +247,7 @@ async def send_view_async(url: str, proxy: str, headers: dict) -> bool:
         return False
 
 async def send_view_mtproto(url: str, proxy: dict, headers: dict) -> bool:
-    """ارسال ویو با استفاده از پروکسی MTProto (از طریق HTTP proxy)"""
     try:
-        # تبدیل MTProto به HTTP proxy
         http_proxy = f"http://{proxy['server']}:{proxy['port']}"
         timeout = aiohttp.ClientTimeout(total=3)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -270,13 +258,11 @@ async def send_view_mtproto(url: str, proxy: dict, headers: dict) -> bool:
         return False
 
 async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """اجرای همزمان ویوها با سرعت مشخص"""
     success_count = 0
     speed = settings_manager.get('speed')
     delay = settings_manager.get('delay')
     use_mtproto = settings_manager.get('use_mtproto')
     
-    # انتخاب پروکسی‌ها بر اساس تنظیمات
     if use_mtproto and MTProto_PROXIES:
         available_proxies = MTProto_PROXIES.copy()
         proxy_type = 'mtproto'
@@ -292,13 +278,11 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
         tasks = []
         
         for _ in range(batch_count):
-            # انتخاب پروکسی تصادفی
             if available_proxies and settings_manager.get('auto_rotate'):
                 proxy = random.choice(available_proxies)
             else:
                 proxy = available_proxies[0] if available_proxies else None
             
-            # تولید هدر تصادفی
             headers = {
                 'User-Agent': random.choice([
                     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -323,13 +307,11 @@ async def execute_views(post_url: str, count: int, context: ContextTypes.DEFAULT
                     'https://www.facebook.com/',
                 ])
             
-            # ارسال ویو با توجه به نوع پروکسی
             if proxy_type == 'mtproto' and proxy:
                 tasks.append(send_view_mtproto(post_url, proxy, headers))
             else:
                 tasks.append(send_view_async(post_url, proxy, headers))
         
-        # اجرای همزمان بچ
         results = await asyncio.gather(*tasks)
         success_count += sum(results)
         
@@ -646,10 +628,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         context.user_data.clear()
     
     elif state == WAITING_FOR_PROXY:
-        # تشخیص نوع پروکسی
         if text.startswith('tg://proxy?'):
-            # پردازش پروکسی MTProto
-            import urllib.parse
             parsed = urllib.parse.parse_qs(urllib.parse.urlparse(text).query)
             if 'server' in parsed and 'port' in parsed and 'secret' in parsed:
                 new_proxy = {
@@ -674,7 +653,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     parse_mode='Markdown'
                 )
         elif '://' in text and ':' in text.split('://')[1]:
-            # پروکسی HTTP
             PROXY_LIST.append(text)
             await update.message.reply_text(
                 f"✅ پروکسی HTTP `{text}` با موفقیت اضافه شد!\n"
@@ -708,9 +686,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("❌ آیدی باید عددی باشد!", reply_markup=get_users_menu())
         context.user_data.clear()
 
-# ==================== تابع اصلی ====================
+# ==================== تابع اصلی (اصلاح شده برای پایتون 3.14) ====================
 
-def main() -> None:
+async def main() -> None:
+    """تابع اصلی غیرهمزمان برای راه‌اندازی ربات"""
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
@@ -722,8 +701,17 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    # استفاده از Polling (ساده‌تر برای Render)
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # اجرای Polling به صورت غیرهمزمان
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    
+    # نگه داشتن ربات در حالت اجرا
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    except (KeyboardInterrupt, SystemExit):
+        await application.stop()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
